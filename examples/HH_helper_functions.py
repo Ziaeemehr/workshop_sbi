@@ -224,5 +224,5 @@ def calculate_summary_statistics(x):
         )
     )
     sum_stats_vec = sum_stats_vec[0:n_summary]
-
+    
     return sum_stats_vec
