@@ -13,18 +13,21 @@ par_sim = {
     't_simulation': 600.0,
 }
 # g_Na, g_K
-par_var = np.array([[9000., 4500.], [5000., 1500.], [1500., 100.]])
+par_var = np.array([[9000., 4500.],
+                    [5000., 1500.],
+                    [1500., 100.]])
 
 
-def test_plot():
-    
+def test_plot(par, file_name="data/example.png"):
+
     fig, ax = plt.subplots(1, figsize=(7, 3))
-    for i in range(len(par_var)):
-        obs = lib.HH_simulator(par_sim=par_sim, par_var=par_var[i])
-        print(lib.calculate_summary_statistics(obs))
+    for i in range(len(par)):
+        obs = lib.HH_simulator(par_sim=par_sim, par_var=par[i])
+        # print(lib.calculate_summary_statistics(obs))
         lib.plot_data(obs, ax=ax)
-    fig.savefig("example.png")
+    fig.savefig(file_name)
     plt.close()
+
 
 def main():
 
@@ -37,7 +40,7 @@ def main():
     posterior = infer(lib.simulation_wrapper,
                       prior,
                       method='SNPE',
-                      num_simulations=300,
+                      num_simulations=500,
                       num_workers=4)
 
     # get observed data
@@ -59,12 +62,29 @@ def main():
                                points=true_params,
                                points_offdiag={'markersize': 6},
                                points_colors='r')
-    fig.savefig("inference_HH.png")
+    fig.savefig("data/inference_HH.png")
+
+    torch.save(samples, 'data/samples.pt')
 
 # ------------------------------------------------------------------#
 
-if __name__ == "__main__":
-    
-    # test_plot()
-    main()
 
+if __name__ == "__main__":
+
+    # test_plot(par_var)
+    # main()
+    
+    try:
+        samples = torch.load("data/samples.pt")
+    else:
+        print("no input file!")
+        exit(0)
+    fig, ax = plt.subplots(ncols=2, figsize=(8, 4))
+    max_values = lib.plot_posterior(
+        samples, ax, labels=[r'$g_{Na}$', r'$g_K$'])
+    fig.savefig("data/posterior.png")
+
+
+    
+    par = np.array([[9000.0, 4500.0], max_values])
+    test_plot(par, file_name="data/compare.png")

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from main import par_sim
 from scipy.integrate import odeint
 from scipy.stats import (kurtosis, skew)
+from scipy.stats.mstats import mquantiles
 
 # ------------------------------------------------------------------#
 
@@ -49,7 +50,6 @@ def HH_simulator(par_sim, par_var):
 
     nest.SetStatus(neuron, 'g_Na', float(par_var[0]))
     nest.SetStatus(neuron, 'g_Kv3', float(par_var[1]))
-        
 
     multimeter = nest.Create('multimeter')
     nest.SetStatus(multimeter, {"withtime": True,
@@ -136,7 +136,6 @@ def calculate_summary_statistics(obs):
     I = obs['i_app']
     t_on = obs['t_on']
     num_spikes = obs['n_events']
-    
 
     # initialise array of spike counts
     v = np.array(obs["data"])
@@ -160,3 +159,58 @@ def calculate_summary_statistics(obs):
 
     return sum_stats_vec
 # ------------------------------------------------------------------#
+
+
+def plot_posterior(samples,
+                   ax,
+                   prob=[0.025, 0.975],
+                   labels=None,
+                   xlim=None,
+                   ylim=None,
+                   xticks=None,
+                   yticks=None,
+                   xlabel=None,
+                   ylabel=None):
+
+    if ax is None:
+        print('pass axis!')
+        exit(0)
+
+    samples = samples.numpy()
+    # print(type(samples))
+    # print(samples.shape)
+    dim = samples.shape[1]
+    assert (len(ax) == dim)
+    if labels is not None:
+        assert (len(labels) == dim)
+
+    hist_diag = {"alpha": 1.0, "bins": 50, "density": True, "histtype": "step"}
+
+    max_values = np.zeros(dim)
+
+    for i in range(dim):
+        ax0 = ax if (dim == 1) else ax[i]
+        n, bins, _ = ax0.hist(samples[:, i], **hist_diag)
+
+        if labels is not None:
+            ax0.set_xlabel(labels[i], fontsize=13)
+        ax0.tick_params(labelsize=12)
+
+        xs = mquantiles(samples[:, i], prob)
+
+        max_value = bins[np.argmax(n)]
+        max_values[i] = max_value
+        ax0.axvline(x=max_value, ls='--', color='gray', lw=2)
+        # for j in range(2):
+        #     ax0.axvline(x=xs[j], ls='--', color="royalblue", lw=2)
+        y = n[np.where((bins > xs[0]) & (bins < xs[1]))]
+
+        ax0.fill_between(np.linspace(xs[0], xs[1], len(y)), y,
+                         color="gray",
+                         alpha=0.2)
+
+        ax0.set_title("{:g}".format(max_value))
+
+    plt.tight_layout()
+
+    return list(max_values)
