@@ -88,7 +88,7 @@ def run(n_simulations, n_workers=4):
 if __name__ == "__main__":
 
     # run some test plot and visualize the membrane potential
-    # test_plot(par_var)
+    test_plot(par_var)
 
     # run simulation wrapper for different parameter values
     # obs = lib.simulation_wrapper(par_var[0])
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     # make loop parallel with joblib
 
-    run(10)
+    # run(10)
 
     exit(0)
     
