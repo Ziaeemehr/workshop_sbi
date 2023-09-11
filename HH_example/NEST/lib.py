@@ -6,8 +6,73 @@ from main import par_sim
 from scipy.integrate import odeint
 from scipy.stats import (kurtosis, skew)
 from scipy.stats.mstats import mquantiles
+import warnings
+from sbi.inference import (SNPE,
+                           infer,
+                           prepare_for_sbi,
+                           simulate_for_sbi)
+
+warnings.filterwarnings("ignore")
 
 # ------------------------------------------------------------------#
+
+
+def train(prior,
+          x,
+          theta,
+          num_threads=1,
+          method="SNPE",
+          density_estimator="maf"
+          ):
+    r'''!
+    train the Neural Network.
+
+
+    @param prior torch.distributions.Distribution
+        prior distribution.
+    @param x torch.Tensor
+        feature data.
+    @param theta torch.Tensor
+        parameters.
+    @param num_threads int
+        number of threads to use.
+    @param method str
+        method to use for training.
+    @param device str
+        Training device, e.g., "cpu", "cuda: or "cuda:{0, 1, ...}".
+    @param density_estimator  str
+        density estimator to use for training. one of (nsf, maf, mdn, made).
+    \return posterior 
+        posterior distribution.
+
+    '''
+    torch.set_num_threads(num_threads)
+
+    # self._device = process_device(device, prior=prior)
+
+    if (len(x.shape) == 1):
+        x = x[:, None]
+    if (len(theta.shape) == 1):
+        theta = theta[:, None]
+
+    num_simulations = theta.shape[0]
+
+    x = x[:num_simulations, :]
+    theta = theta[:num_simulations, :]
+
+    if method == "SNPE":
+        inference = SNPE(prior=prior, 
+                         density_estimator=density_estimator)
+    else:
+        print("unknown method, choose SNLE, SNRE or SNPE.")
+        exit(0)
+
+    # inference._device = self._device
+    # inference = inference.append_simulations(theta, x)
+    # _density_estimator = inference.train()
+    # posterior = inference.build_posterior(_density_estimator)
+
+    # return posterior
 
 
 def simulation_wrapper(par):
@@ -17,12 +82,12 @@ def simulation_wrapper(par):
     to `torch.Tensor`.
     '''
     obs = HH_simulator(par_sim=par_sim, par_var=par)
-    stats = torch.as_tensor(calculate_summary_statistics(obs))
+    stats = calculate_summary_statistics(obs)
     return stats
 # ------------------------------------------------------------------#
 
 
-def HH_simulator(par_sim, par_var):
+def HH_simulator(par_sim, par_var, verbose=False):
 
     dt = par_sim['dt']
     t_on = par_sim['t_on']
@@ -41,20 +106,22 @@ def HH_simulator(par_sim, par_var):
     neuron = nest.Create('hh_psc_alpha_gap')
 
     parameters = nest.GetDefaults("hh_psc_alpha_gap")
-    # for i in parameters:
-    #     print(i, parameters[i])
+    if verbose:
+        for i in parameters:
+            print(i, parameters[i])
 
-    spikedet = nest.Create('spike_detector')
+    spikedet = nest.Create('spike_recorder')
     dc = nest.Create('dc_generator')
-    nest.SetStatus(spikedet, {'to_memory': False})
+    # nest.SetStatus(spikedet, {'to_memory': False}) # depricated in nest 3
 
     nest.SetStatus(neuron, 'g_Na', float(par_var[0]))
     nest.SetStatus(neuron, 'g_Kv3', float(par_var[1]))
 
     multimeter = nest.Create('multimeter')
-    nest.SetStatus(multimeter, {"withtime": True,
-                                "record_from": ["V_m"],
-                                'interval': dt})
+    nest.SetStatus(multimeter, {
+        # "withtime": True,
+        "record_from": ["V_m"],
+        'interval': dt})
     nest.SetStatus(dc, {
         'start': t_on,
         'amplitude': i_app,
